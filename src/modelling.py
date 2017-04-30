@@ -102,9 +102,7 @@ def modelling():
     test_ids = pd.read_csv(TEST_FILE, usecols=['id'], nrows=TEST_NROWS)
     y_train = pd.read_csv(TRAIN_FILE, usecols=['price_doc'],
                           nrows=TRAIN_NROWS)
-    logging.info(y_train['price_doc'].head())
     y_train['price_doc'] = y_train['price_doc'].apply(lambda x: math.log(x + 1))
-    logging.info(y_train['price_doc'].head())
     y_train = y_train['price_doc'].values
 
     X_train = pd.read_csv(TRAIN_FILE, nrows=TRAIN_NROWS)
@@ -112,10 +110,11 @@ def modelling():
 
     X = pd.concat([X_train, X_test])
 
-    drop_cols = ['id', 'timestamp', 'max_floor', 'material', 'build_year',
-                 'num_room', 'kitch_sq', 'state', 'price_doc']
-    drop_cols += ['product_type', 'sub_area', 'ecology']
+    drop_cols = ['id', 'timestamp', 'price_doc']
+    cat_fatures = ['product_type', 'sub_area', 'ecology']
     X.drop(drop_cols, axis=1, inplace=True)
+
+    X = pd.get_dummies(X, columns=cat_fatures)
 
     bool_features = ['culture_objects_top_25', 'thermal_power_plant_raion',
                      'incineration_raion', 'oil_chemistry_raion',
@@ -130,7 +129,6 @@ def modelling():
     X.fillna(-99, inplace=True)
 
     X_train = X[:len(X_train)]
-    logging.info(X_train.head())
     X_test = X[len(X_train):]
 
     names = ['XGBRegressor']
