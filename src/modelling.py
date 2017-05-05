@@ -13,6 +13,7 @@ __author__
 
 """
 
+import numpy as np
 import logging
 import os
 import math
@@ -38,13 +39,14 @@ PRED_DIR = os.path.join(OUTPUT_DIR, CONFIG['PRED_DIR'])
 # Global files.
 TRAIN_FILE = os.path.join(DATA_DIR, 'train.csv')
 TEST_FILE = os.path.join(DATA_DIR, 'test.csv')
+MACRO_FILE = os.path.join(DATA_DIR, 'macro.csv')
 
 # Number of rows to read from files.
 TEST_NROWS = CONFIG['TEST_NROWS']
 TRAIN_NROWS = CONFIG['TRAIN_NROWS']
 
 # Turn off/on parameters tuning and cross validation.
-TUNE_PARAMETERS = False
+TUNE_PARAMETERS = True
 DO_CROSS_VALIDATION = True
 
 
@@ -77,7 +79,7 @@ def generate_predictions(estimators, names, par_grids, test_ids, X_train,
         if TUNE_PARAMETERS:
             logging.info('Doing parameter tuning for %s model' % name)
             best_params, best_score = tune_parameters(estimator, name,
-                                                      par_grid, X_train,
+                                                      par_grid, X_train.values,
                                                       y_train, cv1)
             estimator.set_params(**best_params)
             logging.info('Finished parameter tuning for %s model' % name)
@@ -107,8 +109,23 @@ def modelling():
 
     X_train = pd.read_csv(TRAIN_FILE, nrows=TRAIN_NROWS)
     X_test = pd.read_csv(TEST_FILE, nrows=TEST_NROWS)
+    macro = pd.read_csv(MACRO_FILE)
+
+    wrong_format_cols = ['child_on_acc_pre_school', 'modern_education_share',
+                         'old_education_build_share']
+
+    def convert_str_to_float(str_):
+        try:
+            return float(str_)
+        except:
+            return np.nan
+
+    for col in wrong_format_cols:
+        inds = ~pd.isnull(macro[col])
+        macro[col] = macro[col].apply(lambda x: convert_str_to_float(x))
 
     X = pd.concat([X_train, X_test])
+    X = pd.merge(X, macro, on='timestamp')
 
     drop_cols = ['id', 'timestamp', 'price_doc']
     cat_fatures = ['product_type', 'sub_area', 'ecology']
