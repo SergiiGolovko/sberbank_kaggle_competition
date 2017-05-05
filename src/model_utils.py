@@ -15,14 +15,6 @@ from globals import CONFIG
 EARLY_STOPPING_ROUNDS = 100
 VERBOSE = 50
 
-# Number of positive cases in train set and public leaderboard.
-POS_TRAIN = 0.37
-POS_PUBLIC_LB = 0.165
-
-# Parameters for rescaling predictions.
-A = POS_PUBLIC_LB / POS_TRAIN
-B = (1 - POS_PUBLIC_LB) / (1 - POS_TRAIN)
-
 
 def score(y_true, y_pred, eps=1.e-15):
     return mean_squared_error(y_true, y_pred) ** 0.5
@@ -38,10 +30,6 @@ def cross_validation(estimator, X, y, cv, use_watch_list=False, filename=None):
         metafeatures = np.zeros((len(y), 1))
 
     for i, (train_ind, test_ind) in enumerate(cv):
-        # logging.info(np.array(train_ind))
-        # logging.info(X.tail())
-        # logging.info(y)
-        # Split model into training and validation sets.
         X_train, y_train = X[np.array(train_ind)], y[np.array(train_ind)]
         X_test, y_test = X[np.array(test_ind)], y[np.array(test_ind)]
 
@@ -49,11 +37,11 @@ def cross_validation(estimator, X, y, cv, use_watch_list=False, filename=None):
             # Fit and monitor the progress on test set.
             estimator.fit(X_train, y_train,
                           eval_set=[(X_train, y_train), (X_test, y_test)],
-                          eval_metric='logloss',
+                          eval_metric='rmse',
                           early_stopping_rounds=EARLY_STOPPING_ROUNDS,
                           verbose=VERBOSE)
             # TODO: check if there is an easier way to find out n estimators
-            n_estimators = len(estimator.evals_result()['validation_1']['logloss'])
+            n_estimators = len(estimator.evals_result()['validation_1']['rmse'])
             if opt_n_estimators is None:
                 opt_n_estimators = n_estimators
             else:
@@ -61,10 +49,6 @@ def cross_validation(estimator, X, y, cv, use_watch_list=False, filename=None):
         else:
             # Fit the model on training set.
             estimator.fit(X_train, y_train)
-
-        # Make a prediction for test and train sets.
-        # y_train_pred = rescale_preds(estimator.predict_proba(X_train)[:, 1])
-        # y_test_pred = rescale_preds(estimator.predict_proba(X_test)[:, 1])
 
         y_train_pred = estimator.predict(X_train)
         y_test_pred = estimator.predict(X_test)
@@ -184,7 +168,7 @@ def get_regressors(names):
                                max_depth=6,
                                min_child_weight=9.0,
                                missing=None,
-                               n_estimators=1000,
+                               n_estimators=2000,
                                nthread=-1,
                                reg_alpha=0,
                                reg_lambda=1,
@@ -212,7 +196,7 @@ def get_param_grids(names):
         elif name == 'XGBClassifier':
             param_grid = {'max_depth': [6, 9]}
         elif name == 'XGBRegressor':
-            param_grid = {'max_depth': [6, 9]}
+            param_grid = {'max_depth': [3, 6, 9]}
         elif name == 'Lasso':
             param_grid = {'alpha': [0.001, 0.01, 0.1, 1, 10, 100]}
         elif name == 'ExtraTreesClassifier':
