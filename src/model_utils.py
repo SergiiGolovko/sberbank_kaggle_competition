@@ -3,12 +3,13 @@ import numpy as np
 import math
 from sklearn.grid_search import ParameterGrid
 from sklearn.linear_model import LogisticRegression, Ridge, Lasso
-from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.ensemble import ExtraTreesClassifier, ExtraTreesRegressor
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_squared_error
 import xgboost as xgb
 from xgboost import XGBClassifier, XGBRegressor
 
-# from pickle_utils import dump_metafeatures
+from pickle_utils import dump_metafeatures, dump_model
 from globals import CONFIG
 
 # Parameters for Xgboost
@@ -16,7 +17,7 @@ EARLY_STOPPING_ROUNDS = 100
 VERBOSE = 50
 
 
-def score(y_true, y_pred, eps=1.e-15):
+def score(y_true, y_pred):
     return mean_squared_error(y_true, y_pred) ** 0.5
 
 
@@ -69,8 +70,8 @@ def cross_validation(estimator, X, y, cv, use_watch_list=False, filename=None):
         logging.info('Fold %d, train score: %.5f, test score: %.5f' % (
                       i, train_score, test_score))
 
-    # if filename is not None:
-    #    dump_metafeatures(metafeatures, filename)
+    if filename is not None:
+        dump_metafeatures(metafeatures, filename)
 
     mean_score /= len(cv)
     logging.info('Cross validation is done.')
@@ -78,9 +79,11 @@ def cross_validation(estimator, X, y, cv, use_watch_list=False, filename=None):
     return mean_score, opt_n_estimators
 
 
-def fit_and_predict(estimator, X_train, y_train, X_test):
+def fit_and_predict(estimator, X_train, y_train, X_test, filename=None):
 
     estimator.fit(X_train, y_train)
+    if filename is not None:
+        dump_model(estimator, filename)
     return estimator.predict(X_test)
 
 
@@ -161,14 +164,14 @@ def get_regressors(names):
         if name == 'XGBRegressor':
             rgr = XGBRegressor(base_score=0.5,
                                colsample_bylevel=1,
-                               colsample_bytree=0.9,
+                               colsample_bytree=0.5,
                                gamma=0.7,
                                learning_rate=0.01,
                                max_delta_step=0,
                                max_depth=6,
                                min_child_weight=9.0,
                                missing=None,
-                               n_estimators=2000,
+                               n_estimators=400,
                                nthread=-1,
                                reg_alpha=0,
                                reg_lambda=1,
@@ -177,9 +180,53 @@ def get_regressors(names):
                                silent=True,
                                subsample=0.9)
         elif name == 'Lasso':
-            rgr = Lasso(alpha=1)
+            rgr = Lasso(alpha=1, normalize=True)
+        elif name == 'ExtraTreesRegressor':
+            rgr = ExtraTreesRegressor(n_estimators=10,
+                                      max_depth=None,
+                                      min_samples_split=20,
+                                      min_samples_leaf=10,
+                                      min_weight_fraction_leaf=0.0,
+                                      max_features='auto',
+                                      max_leaf_nodes=None,
+                                      bootstrap=False,
+                                      oob_score=False,
+                                      n_jobs=-1,
+                                      random_state=CONFIG['RANDOM_SEED'],
+                                      verbose=0,
+                                      warm_start=False)
+        elif name == 'RandomForestRegressor':
+            rgr = RandomForestRegressor(n_estimators=10,
+                                        criterion='mse',
+                                        max_depth=None,
+                                        min_samples_split=20,
+                                        min_samples_leaf=10,
+                                        min_weight_fraction_leaf=0.0,
+                                        max_features='auto',
+                                        max_leaf_nodes=None,
+                                        bootstrap=True,
+                                        oob_score=False,
+                                        n_jobs=-1,
+                                        random_state=CONFIG['RANDOM_SEED'],
+                                        verbose=0,
+                                        warm_start=False)
+        elif name == 'GradientBoostingRegressor':
+            rgr = GradientBoostingRegressor(learning_rate=0.1,
+                                            n_estimators=100,
+                                            subsample=0.9,
+                                            min_samples_split=20,
+                                            min_samples_leaf=10,
+                                            min_weight_fraction_leaf=0.0,
+                                            max_depth=3,
+                                            random_state=CONFIG['RANDOM_SEED'],
+                                            max_features=None,
+                                            alpha=0.9,
+                                            verbose=0,
+                                            max_leaf_nodes=None,
+                                            warm_start=False,
+                                            presort='auto')
         else:
-            raise ValueError('Unknown classifier name.')
+            raise ValueError('Unknown regressor name: %s' % name)
 
         regressors.append(rgr)
 
@@ -201,8 +248,15 @@ def get_param_grids(names):
             param_grid = {'alpha': [0.001, 0.01, 0.1, 1, 10, 100]}
         elif name == 'ExtraTreesClassifier':
             param_grid = {'max_features': ['auto', 0.5, 0.9, 1.0]}
+        elif name == 'RandomForestRegressor':
+            param_grid = {'max_features': ['auto', 0.5, 0.9, 1.0],
+                          'max_depth': [None, 6, 8, 10]}
+        elif name == 'ExtraTreesRegressor':
+            param_grid = {'max_features': ['auto', 0.5, 0.9, 1.0]}
+        elif name == 'GradientBoostingRegressor':
+            param_grid = {'max_depth': [5, 6, 9]}
         else:
-            raise ValueError('Unknown classifier name.')
+            raise ValueError('Unknown model name.')
 
         param_grids.append(param_grid)
 
@@ -221,8 +275,10 @@ def get_stacking_param_grids(names):
             param_grid = {'max_depth': [6, 9]}
         elif name == 'ExtraTreesClassifier':
             param_grid = {'max_features': ['auto', 0.5, 0.9, 1.0]}
+        elif name == 'ExtraTreesRegressor':
+            param_grid = {'max_features': ['auto', 0.5, 0.9, 1.0]}
         else:
-            raise ValueError('Unknown classifier name.')
+            raise ValueError('Unknown classifier/regressor name.')
 
         param_grids.append(param_grid)
 
