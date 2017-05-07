@@ -110,8 +110,7 @@ def load_metafeatures(metafeatures_dir=METAFEATURES_DIR, preds_dir=PRED_DIR):
     for filename in common_filenames:
         file = os.path.join(preds_dir, filename + '.csv')
         preds = pd.read_csv(file, usecols=['price_doc'])
-        # We need to rescale predictions back ot avoid double rescaling.
-        # TODO: think about a better way to do it.
+        preds['price_doc'] = preds['price_doc'].apply(lambda x: math.log(x + 1))
         data.append(preds.values)
 
         if ids is None:
