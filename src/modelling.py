@@ -23,11 +23,11 @@ from sklearn.cross_validation import cross_val_score
 from sklearn.linear_model import LogisticRegression
 
 from globals import CONFIG
-# from feature_classification import get_features, get_feature_classes
-# from pickle_utils import load_X
+from pickle_utils import load_X
 from cv_utils import get_cv
 from model_utils import tune_parameters, fit_and_predict, cross_validation
 from model_utils import get_regressors, get_param_grids
+from feature_selection_utils import remove_highly_correlated_features
 
 # Global directories.
 BASE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), '..')
@@ -46,7 +46,7 @@ TEST_NROWS = CONFIG['TEST_NROWS']
 TRAIN_NROWS = CONFIG['TRAIN_NROWS']
 
 # Turn off/on parameters tuning and cross validation.
-TUNE_PARAMETERS = True
+TUNE_PARAMETERS = False
 DO_CROSS_VALIDATION = True
 
 
@@ -87,12 +87,12 @@ def generate_predictions(estimators, names, par_grids, test_ids, X_train,
         if DO_CROSS_VALIDATION:
             logging.info('Doing cross validation for %s model' % name)
             cross_validation(estimator, X_train.values, y_train, cv2,
-                             filename=None)
+                             filename=filename)
             logging.info('Finished cross validation for %s model' % name)
 
         logging.info('Fitting %s model' % name)
         preds['price_doc'] = (
-            fit_and_predict(estimator, X_train, y_train, X_test))
+            fit_and_predict(estimator, X_train, y_train, X_test, filename))
         save_predictions(preds, filename)
         logging.info('Finished fitting %s model' % name)
 
@@ -107,50 +107,13 @@ def modelling():
     y_train['price_doc'] = y_train['price_doc'].apply(lambda x: math.log(x + 1))
     y_train = y_train['price_doc'].values
 
-    X_train = pd.read_csv(TRAIN_FILE, nrows=TRAIN_NROWS)
-    X_test = pd.read_csv(TEST_FILE, nrows=TEST_NROWS)
-    macro = pd.read_csv(MACRO_FILE)
-
-    wrong_format_cols = ['child_on_acc_pre_school', 'modern_education_share',
-                         'old_education_build_share']
-
-    def convert_str_to_float(str_):
-        try:
-            return float(str_)
-        except:
-            return np.nan
-
-    for col in wrong_format_cols:
-        inds = ~pd.isnull(macro[col])
-        macro[col] = macro[col].apply(lambda x: convert_str_to_float(x))
-
-    X = pd.concat([X_train, X_test])
-    X = pd.merge(X, macro, on='timestamp')
-
-    drop_cols = ['id', 'timestamp', 'price_doc']
-    cat_fatures = ['product_type', 'sub_area', 'ecology']
-    X.drop(drop_cols, axis=1, inplace=True)
-
-    X = pd.get_dummies(X, columns=cat_fatures)
-
-    bool_features = ['culture_objects_top_25', 'thermal_power_plant_raion',
-                     'incineration_raion', 'oil_chemistry_raion',
-                     'radiation_raion', 'railroad_terminal_raion',
-                     'big_market_raion', 'nuclear_reactor_raion',
-                     'detention_facility_raion', 'water_1line',
-                     'big_road1_1line', 'railroad_1line']
-
-    for f in bool_features:
-        X[f] = X[f] == 'yes'
-
-    X.fillna(-99, inplace=True)
-
-    X_train = X[:len(X_train)]
-    X_test = X[len(X_train):]
-
-    names = ['XGBRegressor']
+    names = ['XGBRegressor', 'Lasso', 'RandomForestRegressor',
+             'ExtraTreesRegressor', 'GradientBoostingRegressor']
     estimators = get_regressors(names)
     par_grids = get_param_grids(names)
+
+    X_train, X_test = load_X(['standard'], len(y_train))
+    X_train, X_test = remove_highly_correlated_features(X_train, X_test)
 
     generate_predictions(estimators, names, par_grids, test_ids, X_train,
                          y_train, X_test)
