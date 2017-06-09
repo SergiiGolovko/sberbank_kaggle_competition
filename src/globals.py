@@ -18,7 +18,7 @@ CONFIG_test = {'CONFIG': 'config_test',
 # Select a configuration to run.
 CONFIG = CONFIG_normal
 # In order to run 'normal', just uncomment the following line, do NOT delete it
-CONFIG = CONFIG_test
+# CONFIG = CONFIG_test
 
 CONFIG['RANDOM_SEED'] = 2016
 CONFIG['MAX_RANDOM_SEED'] = 2014
