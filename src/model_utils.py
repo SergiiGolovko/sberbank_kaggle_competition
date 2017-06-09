@@ -166,9 +166,9 @@ def get_regressors(names):
                                colsample_bylevel=1,
                                colsample_bytree=0.5,
                                gamma=0.7,
-                               learning_rate=0.01,
+                               learning_rate=0.1,
                                max_delta_step=0,
-                               max_depth=6,
+                               max_depth=5,
                                min_child_weight=9.0,
                                missing=None,
                                n_estimators=400,
@@ -178,7 +178,7 @@ def get_regressors(names):
                                scale_pos_weight=1,
                                seed=CONFIG['RANDOM_SEED'],
                                silent=True,
-                               subsample=0.9)
+                               subsample=0.7)
         elif name == 'Lasso':
             rgr = Lasso(alpha=1, normalize=True)
         elif name == 'ExtraTreesRegressor':
