@@ -113,6 +113,7 @@ def modelling():
     par_grids = get_param_grids(names)
 
     X_train, X_test = load_X(['standard'], len(y_train))
+    names = [name + '_standard' for name in names]
     X_train, X_test = remove_highly_correlated_features(X_train, X_test)
 
     generate_predictions(estimators, names, par_grids, test_ids, X_train,
