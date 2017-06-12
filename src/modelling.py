@@ -57,7 +57,6 @@ def save_predictions(preds, name):
         os.makedirs(PRED_DIR)
 
     path = os.path.join(PRED_DIR, name + '.csv')
-    preds['price_doc'] = preds['price_doc'].apply(lambda x: math.exp(x) - 1)
     preds.to_csv(path, index=False)
 
 
@@ -71,7 +70,7 @@ def generate_predictions(estimators, names, par_grids, test_ids, X_train,
     cv1 = get_cv(y_train)
 
     # CV for cross validation. Must be KFold to create metafeatures.
-    cv2 = get_cv(y_train, n_folds=5, type='kfold')
+    cv2 = get_cv(y_train, n_folds=10, type='kfold')
 
     for (estimator, par_grid, name) in zip(estimators, par_grids, names):
         filename = name
@@ -93,6 +92,7 @@ def generate_predictions(estimators, names, par_grids, test_ids, X_train,
         logging.info('Fitting %s model' % name)
         preds['price_doc'] = (
             fit_and_predict(estimator, X_train, y_train, X_test, filename))
+        preds['price_doc'] = preds['price_doc'].apply(lambda x: math.exp(x) - 1)
         save_predictions(preds, filename)
         logging.info('Finished fitting %s model' % name)
 
